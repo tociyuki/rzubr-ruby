@@ -37,7 +37,7 @@ class Calculator
       right(:UPLUS, :UMINUS)
 
     # production lines in BNF rule[rhs] & semantic_action method names
-    # NOTES: semantic actions must are method without Proc objects.
+    # NOTES: semantic actions must be methods without Proc objects.
     lines = rule.name(:lines) \
       > rule[:lines, :expr, "\n"]  & :parse_lines_expr \
       | rule[:lines, "\n"] \
@@ -76,6 +76,7 @@ end
 ```
 
 Here is a lexical scanner with StringScanner.
+On end of input, scanner passes nil into parser as the ENDMARK.
 
 ```ruby
 require 'strscan'
