@@ -2,7 +2,7 @@ require "rzubr/grammar"
 
 module Rzubr
   class Parser
-    attr_reader :table, :errstatus, :symstack, :datstack
+    attr_reader :table, :errstatus, :symstack, :datstack, :token_value
     attr_accessor :output, :nerror, :state
 
     ERRORSKIPTOKEN = 3
