@@ -74,7 +74,7 @@ module Rzubr
         # error recovery based on the Yacc's yaccpar driver.
         if @errstatus == ERRORSKIPTOKEN
           if @token_type == ENDMARK
-            raise "Give up error recovery due to reach end of input."
+            raise "Give up error recovery due to reach end of input: #{@token_value.inspect}."
           end
           yield self
           next
@@ -90,7 +90,7 @@ module Rzubr
           @datstack.pop
         end
         if @symstack.empty?
-          raise "Not defined any error recovery productions in the grammar."
+          raise "Not defined any error recovery productions in the grammar: input: #{@token_value.inspect}."
         end
         # shift for terminal :error
         @symstack.push @table.action[@symstack.last][:error]
