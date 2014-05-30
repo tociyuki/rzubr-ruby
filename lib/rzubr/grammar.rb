@@ -63,6 +63,7 @@ module Rzubr
     def self.[](*a) new(*a) end
 
     def initialize(lhs, rhs, prec, action)
+      raise ArgumentError, "lhs must not be nil!" if lhs.nil?
       @lhs, @rhs, @precedence, @action = lhs, rhs, prec, action
     end
 
