@@ -5,14 +5,14 @@ module Rzubr
     attr_reader :prec, :prod
     def initialize(prec, prod) @prec, @prod = prec, prod end
     def +(x) Rule.new(@prec + x.prec, @prod + x.prod) end
-    def self.left(*a) Rule.new([[:left, *a]], []) end
-    def self.right(*a) Rule.new([[:right, *a]], []) end
+    def self.left(*a)     Rule.new([[:left, *a]], []) end
+    def self.right(*a)    Rule.new([[:right, *a]], []) end
     def self.nonassoc(*a) Rule.new([[:nonassoc, *a]], []) end
-    def left(*a) self + Rule.new([[:left, *a]], []) end
-    def right(*a) self + Rule.new([[:right, *a]], []) end
-    def nonassoc(*a) self + Rule.new([[:nonassoc, *a]], []) end
+    def left(*a)     Rule.new(@prec + [[:left, *a]], @prod) end
+    def right(*a)    Rule.new(@prec + [[:right, *a]], @prod) end
+    def nonassoc(*a) Rule.new(@prec + [[:nonassoc, *a]], @prod) end
     def self.name(sym) Rule.new([], [[sym, [], nil, nil]]) end
-    def self.[](*a) Rule.new([], [[nil, a, nil, nil]]) end
+    def self.[](*a)    Rule.new([], [[nil, a, nil, nil]]) end
     def %(x) Rule.new(@prec, [[@prod[0][0], @prod[0][1], x, @prod[0][3]]]) end
     def &(x) Rule.new(@prec, [[@prod[0][0], @prod[0][1], @prod[0][2], x]]) end
     def |(x) Rule.new(@prec, @prod + x.prod) end
