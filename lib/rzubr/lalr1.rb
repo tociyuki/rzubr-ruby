@@ -16,6 +16,7 @@ module Rzubr
     def rule(form)
       @state.rule(form)
       fill_table
+      check_table
       self
     end
 
@@ -75,6 +76,56 @@ module Rzubr
         end
       end
       if rr_conflict > 0
+        raise "Grammar Critical Error"
+      end
+    end
+
+    def check_table
+      errs = 0
+      nonterminal_shifts = Set.new
+      nonterminal_reduces = Set.new
+      @action.each_index do |state_p|
+        if @action[state_p].empty?
+          #  s  = r.name(:list) > r[:list, "X"]
+          # or
+          #  s  = r.name(:list) > r[:list1, "X"]
+          #  s += r.name(:list1) > r[:list]
+          errs += 1
+          puts "state #{state_p} empty actions table entry. infinite loop in grammar?"
+        else
+          @action[state_p].each_pair do |symbol_a, x|
+            next if symbol_a == ENDMARK
+            case x
+            when Integer
+              nonterminal_shifts << symbol_a
+            when Production
+              nonterminal_reduces << symbol_a
+            end
+          end
+        end
+      end
+      if not nonterminal_reduces.empty? and not nonterminal_reduces.subset?(nonterminal_shifts)
+        # see http://lists.gnu.org/archive/html/help-bison/2006-06/msg00011.html
+        #   s  = r.left('b').left('a')
+        #   s += r.name(:s) > r[:a, 'b']
+        #   s += r.name(:a) > r[:b]
+        #   s += r.name(:b) > r['a'] | r[:a] % 'a'
+        #
+        #  stack                        input
+        #  [0]   ["a", "b", "b", "b", "b", $]  shift "a" => state 4
+        #  [0, 4]     ["b", "b", "b", "b", $]  reduce :b -> "a" / goto [0, :b] => state 3
+        #  [0, 3]     ["b", "b", "b", "b", $]  reduce :a -> :b  / goto [0, :a] => state 2
+        #  [0, 2]     ["b", "b", "b", "b", $]  reduce :b -> :a  / goto [0, :b] => state 3
+        #  [0, 3]     ["b", "b", "b", "b", $]  reduce :a -> :b  / goto [0, :a] => state 2
+        #  [0, 2]     ["b", "b", "b", "b", $]  reduce :b -> :a  / goto [0, :b] => state 3
+        #  ... infinite
+        errs += 1
+        u = nonterminal_reduces - nonterminal_shifts
+        u.each do |symbol_a|
+          puts "reduce by #{symbol_a.inspect} but never shift by it. infinite loop in grammar?"
+        end
+      end
+      if errs > 0
         raise "Grammar Critical Error"
       end
     end
