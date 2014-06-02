@@ -125,6 +125,7 @@ class PrettyANSICDeclaration
   def declarator_list_first(v) [v[1]] end
   def declarator_list(v) v[1] << v[3] end
 
+  def pointer_to(v) 'pointer to' end
   def type_pointer_to(v) "#{v[2]} pointer to" end
   def type_qualifier_pointer_to(v) "#{v[3]} #{v[2]} pointer to" end
 
@@ -144,7 +145,6 @@ class PrettyANSICDeclaration
 
   def concat_string(v) [v[1], v[2]].join(' ') end
   def reverse_concat_string(v) [v[2], v[1]].join(' ') end
-  def pointer_to(v) 'pointer to' end
 
   def next_token(parser, scanner)
     while not scanner.eos?
