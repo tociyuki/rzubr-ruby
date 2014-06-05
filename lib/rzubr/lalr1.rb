@@ -15,8 +15,12 @@ module Rzubr
 
     def rule(form)
       @state.rule(form)
-      fill_table
-      check_table
+      err = fill_table
+      err += check_table
+      if err > 0
+        print list
+        raise "Grammar Critical Error"
+      end
       self
     end
 
@@ -75,9 +79,7 @@ module Rzubr
           end
         end
       end
-      if rr_conflict > 0
-        raise "Grammar Critical Error"
-      end
+      rr_conflict
     end
 
     def check_table
@@ -125,9 +127,41 @@ module Rzubr
           puts "reduce by #{symbol_a.inspect} but never shift by it. infinite loop in grammar?"
         end
       end
-      if errs > 0
-        raise "Grammar Critical Error"
+      errs
+    end
+
+    def list
+      t = ''
+      @state.term.each_with_index do |s, state_p|
+        t << 'state %d' % [state_p] << "\n"
+        s.each do |i, pos|
+          prod = @state.grammar.production[i]
+          r = prod.rhs.map{|x| x.inspect }
+          a = r[0 ... pos]
+          b = r[pos ... -1]
+          t << '      %s -> %s' % [prod.lhs.inspect, (a + ['_'] + b).join(' ')] << "\n"
+        end
+        t << "\n"
+        @action[state_p].each_pair do |s, x|
+          case x
+          when Integer
+            t << '  %-6s shift => state %d' % [s.inspect, x] << "\n"
+          end
+        end
+        @goto[state_p].each_pair do |s, x|
+          t << '  %-6s goto => state %d' % [s.inspect, x] << "\n"
+        end
+        @action[state_p].each_pair do |s, x|
+          case x
+          when :accept
+            t << '  %-6s accept' % [s.inspect] << "\n"
+          when Production
+            t << '  %-6s reduce %s' % [s.inspect, x.inspect] << "\n"
+          end
+        end
+        t << "\n"
       end
+      t
     end
 
   private
