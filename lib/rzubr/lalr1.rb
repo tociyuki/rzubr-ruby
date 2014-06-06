@@ -138,7 +138,7 @@ module Rzubr
           prod = @state.grammar.production[i]
           r = prod.rhs.map{|x| x.inspect }
           a = r[0 ... pos]
-          b = r[pos ... -1]
+          b = r[pos .. -1]
           t << '      %s -> %s' % [prod.lhs.inspect, (a + ['_'] + b).join(' ')] << "\n"
         end
         t << "\n"
