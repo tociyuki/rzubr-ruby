@@ -13,12 +13,12 @@ module Rzubr
       @goto = []
     end
 
-    def rule(form)
+    def rule(form, out = $stdout)
       @state.rule(form)
       err = fill_table
       err += check_table
       if err > 0
-        print list
+        out << list
         raise "Grammar Critical Error"
       end
       self
