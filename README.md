@@ -1,6 +1,6 @@
 # Rzubr
 
-Toy LALR(1) parsing table generator and driver.
+Rzubr is a toy LALR(1) parsing table generator and its driver.
 It also resolves shift/reduce conflicts with precedences of terminals
 as similar as Yacc/Bison way.
 The driver is almost equivalent from yaccpar with error recovery.
@@ -21,6 +21,8 @@ Or install it yourself as:
 
 ## Usage
 
+Rzubr::Rule provides you to write grammars with Ruby's expression.
+
 For example, we write the grammar of the simple calculator.
 
 ```ruby
@@ -30,11 +32,15 @@ class Calculator
   def grammar_table
     rule = Rzubr::Rule
 
-    # declaration precedences
+    # declaration precedences: left, right, and nonassoc
     prec = rule.
       left('+', '-').
       left('*', '/').
       right(:UPLUS, :UMINUS)
+
+    # productions
+    # from BNF: C -> A B | D E F | G
+    # to rzubr: rule.name(:C) > rule[:A, :B] | rule[:D, :E, :F] | rule[:G]
 
     # production lines in BNF rule[rhs] & semantic_action method names
     # NOTES: semantic actions must be methods without Proc objects.
@@ -55,7 +61,7 @@ class Calculator
       | rule['-', :expr] % :UMINUS & :parse_expr_negative \
       | rule[:NUMBER]              & :parse_expr_number
 
-    # construct grammar from with them
+    # the calculator grammar from them
     g = (prec + lines + expr).start(:lines)
     # generate LALR(1) parsing table of it
     Rzubr::LALR1.new.rule(g)
