@@ -29,106 +29,113 @@ class PrettyANSICDeclaration
     'register', 'short', 'signed', 'static', 'unsigned', 'void', 'volatile']
 
   def grammar_table
-    rule = Rzubr::Rule
-
-    s = rule.name(:program) \
-      > rule[:declaration] \
-      | rule[:program, :declaration]
-
-    s += rule.name(:declaration) \
-      > rule[:declaration_specifiers, ';'] & :puts_declaration \
-      | rule[:declaration_specifiers,  :declarator_list, ';'] & :puts_declaration_list
-
-    s += rule.name(:declaration_specifiers) \
-      > rule[:storage_class_specifier] \
-      | rule[:storage_class_specifier, :declaration_specifiers] & :concat_string \
-      | rule[:type_qualifier] \
-      | rule[:type_qualifier, :declaration_specifiers] & :concat_string \
-      | rule[:type_specifier] \
-      | rule[:type_specifier, :declaration_specifiers] & :concat_string
-
-    s += rule.name(:declarator_list) \
-      > rule[:declarator] & :declarator_list_first \
-      | rule[:declarator_list, ',', :declarator] & :declarator_list
-
-    s += rule.name(:declarator) \
-      > rule[:pointer, :direct_declarator] & :reverse_concat_string \
-      | rule[:direct_declarator]
-
-    s += rule.name(:storage_class_specifier) \
-      > rule['extern'] | rule['static'] | rule['auto'] | rule['register']
-
-    s += rule.name(:type_qualifier) \
-      > rule['const'] | rule['valatile']
-
-    s += rule.name(:type_specifier) \
-      > rule['void'] | rule['signed'] | rule['unsigned'] \
-      | rule['char'] | rule['short'] | rule['int'] | rule['long'] \
-      | rule['float'] | rule['double']
-
-    s += rule.name(:type_qualifier_list) \
-      > rule[:type_qualifier] \
-      | rule[:type_qualifier_list, :type_qualifier] & :concat_string
-
-    s += rule.name(:pointer) \
-      > rule['*'] & :pointer_to \
-      | rule['*', :type_qualifier_list] & :type_pointer_to \
-      | rule['*', :pointer] & :type_pointer_to \
-      | rule['*', :type_qualifier_list, :pointer] & :type_qualifier_pointer_to
-
-    s += rule.name(:constant_expression) \
-      > rule[:CONSTANT]
-
-    s += rule.name(:direct_declarator) \
-      > rule[:IDENTIFIER] & :direct_identifier \
-      | rule['(', :declarator, ')'] & :direct_paren \
-      | rule[:direct_declarator, '[', :constant_expression, ']'] & :direct_sized_array \
-      | rule[:direct_declarator, '[', ']'] & :direct_array \
-      | rule[:direct_declarator, '(', :parameter_type_list, ')'] & :direct_function_param \
-      | rule[:direct_declarator, '(', ')'] & :direct_function
-
-    s += rule.name(:abstract_declarator) \
-      > rule[:pointer] \
-      | rule[:direct_abstract_declarator] \
-      | rule[:pointer, :direct_abstract_declarator] & :reverse_concat_string
-
-    s += rule.name(:direct_abstract_declarator) \
-      > rule['(', :abstract_declarator, ')'] \
-      | rule['[', ']'] & :direct_abstract_array \
-      | rule['[', :constant_expression, ']'] & :direct_abstract_sized_array \
-      | rule[:direct_abstract_declarator, '[', ']'] & :direct_array \
-      | rule[:direct_abstract_declarator, '[', :constant_expression, ']'] & :direct_sized_array \
-      | rule['(', ')'] & :direct_abstract_function \
-      | rule['(', :parameter_type_list, ')'] & :direct_abstract_function_param \
-      | rule[:direct_abstract_declarator, '(', ')'] & :direct_function \
-      | rule[:direct_abstract_declarator, '(', :parameter_type_list, ')'] & :direct_function_param
-
-    s += rule.name(:parameter_type_list) \
-      > rule[:parameter_list] \
-      | rule[:parameter_list, ',', '...'] & :parameter_list
-
-    s += rule.name(:parameter_list) \
-      > rule[:parameter_declaration] \
-      | rule[:parameter_list, ',', :parameter_declaration] & :parameter_list
-
-    s += rule.name(:parameter_declaration) \
-      > rule[:declaration_specifiers, :declarator] & :reverse_concat_string \
-      | rule[:declaration_specifiers, :abstract_declarator] & :reverse_concat_string \
-      | rule[:declaration_specifiers]
+    s = rule_program \
+      + rule_declaration \
+      + rule_declaration_specifiers \
+      + rule_declarator_list \
+      + rule_storage_class_specifier \
+      + rule_type_qualifier \
+      + rule_type_specifier \
+      + rule_type_qualifier_list \
+      + rule_declarator \
+      + rule_pointer \
+      + rule_direct_declarator \
+      + rule_abstract_declarator \
+      + rule_direct_abstract_declarator \
+      + rule_parameter_type_list \
+      + rule_parameter_list \
+      + rule_parameter_declaration \
+      + rule_constant_expression
 
     Rzubr::LALR1.new.rule(s.start(:program))
   end
 
+  def rule() Rzubr::Rule end
+  alias :seq :rule
+
+  def rule_program
+    rule.name(:program) \
+      > seq[:declaration] \
+      | seq[:program, :declaration]
+  end
+
+  def rule_declaration
+    rule.name(:declaration) \
+      > seq[:declaration_specifiers, ';'] & :puts_declaration \
+      | seq[:declaration_specifiers,  :declarator_list, ';'] & :puts_declaration_list
+  end
   def puts_declaration(v) puts v[1]; nil end
   def puts_declaration_list(v) print v[2].collect{|x| "#{x} #{v[1]}.\n" }.join; nil end
 
+  def rule_declaration_specifiers
+    rule.name(:declaration_specifiers) \
+      > seq[:storage_class_specifier] \
+      | seq[:storage_class_specifier, :declaration_specifiers] & :concat_string \
+      | seq[:type_qualifier] \
+      | seq[:type_qualifier, :declaration_specifiers] & :concat_string \
+      | seq[:type_specifier] \
+      | seq[:type_specifier, :declaration_specifiers] & :concat_string
+  end
+  def concat_string(v) [v[1], v[2]].join(' ') end
+
+  def rule_declarator_list
+    rule.name(:declarator_list) \
+      > seq[:declarator] & :declarator_list_first \
+      | seq[:declarator_list, ',', :declarator] & :declarator_list
+  end
   def declarator_list_first(v) [v[1]] end
   def declarator_list(v) v[1] << v[3] end
 
+  def rule_storage_class_specifier
+    rule.name(:storage_class_specifier) \
+      > seq['extern'] | seq['static'] | seq['auto'] | seq['register']
+  end
+
+  def rule_type_qualifier
+    rule.name(:type_qualifier) \
+      > seq['const'] | seq['valatile']
+  end
+
+  def rule_type_specifier
+    rule.name(:type_specifier) \
+      > seq['void'] | seq['signed'] | seq['unsigned'] \
+      | seq['char'] | seq['short'] | seq['int'] | seq['long'] \
+      | seq['float'] | seq['double']
+  end
+
+  def rule_type_qualifier_list
+    rule.name(:type_qualifier_list) \
+      > seq[:type_qualifier] \
+      | seq[:type_qualifier_list, :type_qualifier] & :concat_string
+  end
+
+  def rule_declarator
+    rule.name(:declarator) \
+      > seq[:pointer, :direct_declarator] & :reverse_concat_string \
+      | seq[:direct_declarator]
+  end
+  def reverse_concat_string(v) [v[2], v[1]].join(' ') end
+
+  def rule_pointer
+    rule.name(:pointer) \
+      > seq['*'] & :pointer_to \
+      | seq['*', :type_qualifier_list] & :type_pointer_to \
+      | seq['*', :pointer] & :type_pointer_to \
+      | seq['*', :type_qualifier_list, :pointer] & :type_qualifier_pointer_to
+  end
   def pointer_to(v) 'pointer to' end
   def type_pointer_to(v) "#{v[2]} pointer to" end
   def type_qualifier_pointer_to(v) "#{v[3]} #{v[2]} pointer to" end
 
+  def rule_direct_declarator
+    rule.name(:direct_declarator) \
+      > seq[:IDENTIFIER] & :direct_identifier \
+      | seq['(', :declarator, ')'] & :direct_paren \
+      | seq[:direct_declarator, '[', :constant_expression, ']'] & :direct_sized_array \
+      | seq[:direct_declarator, '[', ']'] & :direct_array \
+      | seq[:direct_declarator, '(', :parameter_type_list, ')'] & :direct_function_param \
+      | seq[:direct_declarator, '(', ')'] & :direct_function
+  end
   def direct_identifier(v) "#{v[1]}:" end
   def direct_paren(v) v[2] end
   def direct_sized_array(v) "#{v[1]} array[#{v[3]}] of" end
@@ -136,15 +143,54 @@ class PrettyANSICDeclaration
   def direct_function_param(v) "#{v[1]} function(#{v[3]}) returning" end
   def direct_function(v) "#{v[1]} function() returning" end
 
+  def rule_constant_expression
+    rule.name(:constant_expression) \
+      > seq[:CONSTANT]
+  end
+
+  def rule_parameter_type_list
+    rule.name(:parameter_type_list) \
+      > seq[:parameter_list] \
+      | seq[:parameter_list, ',', '...'] & :parameter_list
+  end
+  def parameter_list(v) "#{v[1]}, #{v[3]}" end
+
+  def rule_parameter_list
+    rule.name(:parameter_list) \
+      > seq[:parameter_declaration] \
+      | seq[:parameter_list, ',', :parameter_declaration] & :parameter_list
+  end
+
+  def rule_parameter_declaration
+    rule.name(:parameter_declaration) \
+      > seq[:declaration_specifiers, :declarator] & :reverse_concat_string \
+      | seq[:declaration_specifiers, :abstract_declarator] & :reverse_concat_string \
+      | seq[:declaration_specifiers]
+  end
+
+  def rule_abstract_declarator
+    rule.name(:abstract_declarator) \
+      > seq[:pointer] \
+      | seq[:direct_abstract_declarator] \
+      | seq[:pointer, :direct_abstract_declarator] & :reverse_concat_string
+  end
+
+  def rule_direct_abstract_declarator
+    rule.name(:direct_abstract_declarator) \
+      > seq['(', :abstract_declarator, ')'] \
+      | seq['[', ']'] & :direct_abstract_array \
+      | seq['[', :constant_expression, ']'] & :direct_abstract_sized_array \
+      | seq[:direct_abstract_declarator, '[', ']'] & :direct_array \
+      | seq[:direct_abstract_declarator, '[', :constant_expression, ']'] & :direct_sized_array \
+      | seq['(', ')'] & :direct_abstract_function \
+      | seq['(', :parameter_type_list, ')'] & :direct_abstract_function_param \
+      | seq[:direct_abstract_declarator, '(', ')'] & :direct_function \
+      | seq[:direct_abstract_declarator, '(', :parameter_type_list, ')'] & :direct_function_param
+  end
   def direct_abstract_array(v) "array[] of" end
   def direct_abstract_sized_array(v) "array[#{v[2]}] of" end
   def direct_abstract_function_param(v) "function(#{v[2]}) returning" end
   def direct_abstract_function(v) "function() returning" end
-
-  def parameter_list(v) "#{v[1]}, #{v[3]}" end
-
-  def concat_string(v) [v[1], v[2]].join(' ') end
-  def reverse_concat_string(v) [v[2], v[1]].join(' ') end
 
   def next_token(parser, scanner)
     while not scanner.eos?
@@ -173,7 +219,7 @@ class PrettyANSICDeclaration
       begin
         parser.parse(self) { next_token(parser, scanner) }
       rescue
-        put "syntax error on #{parser.token_value.inspect}."
+        puts "syntax error on #{parser.token_value.inspect}."
       end
     end
   end

@@ -3,7 +3,7 @@ require "rzubr/grammar"
 module Rzubr
   class Rule
     attr_reader :prec, :prod
-    def initialize(prec, prod) @prec, @prod = prec, prod end
+    def initialize(prec = [], prod = []) @prec, @prod = prec, prod end
     def +(x) Rule.new(@prec + x.prec, @prod + x.prod) end
     def self.left(*a)     Rule.new([[:left, *a]], []) end
     def self.right(*a)    Rule.new([[:right, *a]], []) end
@@ -33,6 +33,15 @@ module Rzubr
         prodlist << Production.new(lhs, rhs, prec, action)
       end
       [prectbl, prodlist]
+    end
+
+    def self.productions_in(obj)
+      s = self.new
+      obj.class.instance_methods.each do |x|
+        pname = x.to_s.sub!(/^rule_/, '') or next
+        s += self.name(pname.intern) > obj.send(x)
+      end
+      s
     end
   end
 end
