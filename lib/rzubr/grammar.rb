@@ -36,6 +36,8 @@ module Rzubr
         :reduce
       elsif @precedence[r].assoc == :right
         :shift
+      elsif @precedence[r].assoc == :nonassoc
+        :nonassoc
       else
         :error
       end

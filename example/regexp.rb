@@ -109,6 +109,39 @@ module RegularExpression
           @dfa[state_from][ch] = state_to
         end
       end
+      compact
+    end
+
+    def compact
+      group = [
+        @dfa.each_index.select{|i| ! @dfa[i].key?(:finish) },
+        @dfa.each_index.select{|i|   @dfa[i].key?(:finish) },
+      ]
+      while true
+        compact_dfa = []
+        next_group = []
+        next_group_id = {}
+        group.each_index do |gid|
+          group[gid].each do |state|
+            compact_state = {}
+            @dfa[state].keys.each do |a|
+              t = @dfa[state][a]
+              compact_state[a] = group.find_index {|g| g.include?(t) }
+            end
+            if not next_group_id.key?(compact_state)
+              compact_dfa.push compact_state
+              next_group.push []
+              next_group_id[compact_state] = next_group.size - 1
+            end
+            next_group[next_group_id[compact_state]].push state
+          end
+        end
+        if group == next_group
+          @dfa = compact_dfa
+          break
+        end
+        group = next_group
+      end
       self
     end
 
@@ -192,6 +225,22 @@ end #module RegularExpression
 
 if __FILE__ == $0
   dfac = RegularExpression::DFACompiler.new
-  dfac.compile('(a|b)*abb').dfa.each_with_index {|x, i| puts '%d %s' % [i, x.inspect] }
+  # '(a|b)*abb'
+  octet = '(' + (0..255).collect{|i| i.to_s }.join('|') + ')'
+  dfac.compile(octet).dfa.each_with_index {|x, i|
+    puts '%d %s' % [i, x.inspect]
+  }
 end
+
+=begin
+0 {"0"=>1, "1"=>2, "2"=>3, "3"=>4, "4"=>4, "5"=>4, "6"=>4, "7"=>4, "8"=>4, "9"=>4}
+1 {:finish=>0}
+2 {:finish=>0, "0"=>4, "1"=>4, "2"=>4, "3"=>4, "4"=>4, "5"=>4, "6"=>4, "7"=>4, "8"=>4, "9"=>4}
+3 {:finish=>0, "0"=>4, "1"=>4, "2"=>4, "3"=>4, "4"=>4, "5"=>5, "6"=>1, "7"=>1, "8"=>1, "9"=>1}
+4 {:finish=>0, "0"=>1, "1"=>1, "2"=>1, "3"=>1, "4"=>1, "5"=>1, "6"=>1, "7"=>1, "8"=>1, "9"=>1}
+5 {:finish=>0, "0"=>1, "1"=>1, "2"=>1, "3"=>1, "4"=>1, "5"=>1}
+
+(0|1([0-9][0-9]?)?|2([0-4][0-9]?|5[0-5]?|[6-9])?|[3-9][0-9]?)
+
+=end
 

@@ -69,6 +69,8 @@ module Rzubr
               @action[state_p][symbol_a] = state_r
             when :reduce
               # action already has it.
+            when :nonassoc
+              @action[state_p].delete symbol_a
             when :default
               @action[state_p][symbol_a] = state_r
               puts "state #{state_p} shift/reduce conflict #{symbol_a.inspect}."
