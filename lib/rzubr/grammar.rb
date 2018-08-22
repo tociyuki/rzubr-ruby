@@ -27,8 +27,9 @@ module Rzubr
     # resolve shift/reduce conflict on terminal a and production prod
     def resolve(a, prod)
       r = prod.precedence
-      return :default if not @precedence.key?(a) or not r or not @precedence.key?(r)
-      if @precedence[a].score < @precedence[r].score
+      if not @precedence.key?(a) or not r or not @precedence.key?(r)
+        :default
+      elsif @precedence[a].score < @precedence[r].score
         :reduce
       elsif @precedence[a].score > @precedence[r].score
         :shift
@@ -65,7 +66,7 @@ module Rzubr
     def self.[](*a) new(*a) end
 
     def initialize(lhs, rhs, prec, action)
-      raise ArgumentError, "lhs must not be nil!" if lhs.nil?
+      not lhs.nil? or raise ArgumentError, "lhs must not be nil!"
       @lhs, @rhs, @precedence, @action = lhs, rhs, prec, action
     end
 

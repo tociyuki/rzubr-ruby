@@ -37,7 +37,7 @@ module Rzubr
       while not kont.empty?
         state_p = kont.shift
         @term[state_p].each do |i, pos|
-          next unless pos < production[i].rhs.size
+          (pos < production[i].rhs.size) or next
           x = production[i].rhs[pos]
           termset_r = goto_closure(@term[state_p], x)
           state_r = @term.index(termset_r)
@@ -72,13 +72,13 @@ module Rzubr
       while true
         a = Set.new
         termset.each do |i, pos|
-          next unless pos < production[i].rhs.size
+          (pos < production[i].rhs.size) or next
           b = production[i].rhs[pos]
-          next unless nonterminal.key?(b)
-          next if already.include?(b)
+          nonterminal.key?(b) or next
+          not already.member?(b) or next
           already << b
           nonterminal[b].each do |j|
-            next if termset.include?([j, 0])
+            not termset.member?([j, 0]) or next
             a << [j, 0]
           end
         end
@@ -91,8 +91,8 @@ module Rzubr
     def goto_closure(termset_p, x)
       termset_r = Set.new
       termset_p.each do |i, pos|
-        next unless pos < production[i].rhs.size
-        next unless production[i].rhs[pos] == x
+        (pos < production[i].rhs.size) or next
+        (production[i].rhs[pos] == x) or next
         termset_r << [i, pos + 1]
       end
       closure(termset_r)

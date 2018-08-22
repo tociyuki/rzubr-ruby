@@ -38,15 +38,14 @@ module Rzubr
         @goto[state_p] = {}
         reduce[state_p] = {}
       end
-      @state.accept.each do |state_p|
-        @action[state_p][ENDMARK] = :accept
-      end
+      @state.accept.each {|state_p| @action[state_p][ENDMARK] = :accept }
       @lookahead = compute_lookahead
       @lookahead.each_pair do |(state_p, i), symbol_set|
         symbol_set.each do |symbol_a|
-          next if symbol_a == ENDMARK and @action[state_p][ENDMARK] == :accept
-          reduce[state_p][symbol_a] ||= Set.new
-          reduce[state_p][symbol_a] << i
+          if symbol_a != ENDMARK or @action[state_p][ENDMARK] != :accept
+            reduce[state_p][symbol_a] ||= Set.new
+            reduce[state_p][symbol_a] << i
+          end
         end
       end
       rr_conflict = 0
@@ -138,7 +137,7 @@ module Rzubr
         t << 'state %d' % [state_p] << "\n"
         s.each do |i, pos|
           prod = @state.grammar.production[i]
-          r = prod.rhs.map{|x| x.inspect }
+          r = prod.rhs.map {|x| x.inspect }
           a = r[0 ... pos]
           b = r[pos .. -1]
           t << '      %s -> %s' % [prod.lhs.inspect, (a + ['_'] + b).join(' ')] << "\n"
@@ -171,14 +170,39 @@ module Rzubr
     # F. L. DeRemer, T. J. Pennelo "Efficient Computation of LALR(1) Lookahead Sets",
     #   ACM Transactions on Programming Languages and Systems, Vol. 4, No. 4, 1982
     def compute_lookahead
-      nullable = select_nullable(production)
-      dr_set = {}
-      reads_relation = {}
       includes_relation = {}
-      lookback_relation = {}
+      nullable = select_nullable
+      dr_set = {}
+      reads_relation = compute_reads_relation(includes_relation, nullable, dr_set)
+      lookback_relation = compute_lookback_relation(includes_relation, nullable)
+      read_set = union_find(dr_set, reads_relation)
+      follow_set = union_find(read_set, includes_relation)
+      lookahead_set = {}
+      lookback_relation.each_pair do |x, rel|
+        lookahead_set[x] = rel.inject(Set.new) {|r, y| r.merge follow_set[y] }
+      end
+      lookahead_set
+    end
+
+    def select_nullable
+      nullable = Set.new
+      changed = true
+      while changed
+        changed = false
+        production.each do |e|
+          if e.rhs.size == 0 or e.rhs.all? {|a| nullable.include?(a) }
+            changed |= ! nullable.add?(e.lhs).nil?
+          end
+        end
+      end
+      nullable
+    end
+
+    def compute_reads_relation(includes_relation, nullable, dr_set)
+      reads_relation = {}
       @state.transition.each_index do |state_p|
         @state.transition[state_p].each_pair do |symbol_a, state_r|
-          next unless nonterminal.key?(symbol_a)
+          nonterminal.key?(symbol_a) or next
           dr_set[[state_p, symbol_a]] = Set[]
           reads_relation[[state_p, symbol_a]] = Set[]
           includes_relation[[state_p, symbol_a]] = Set[]
@@ -194,75 +218,57 @@ module Rzubr
           end
         end
       end
-      read_set = union_relation(dr_set, reads_relation)
+      reads_relation
+    end
+
+    def compute_lookback_relation(includes_relation, nullable)
+      lookback_relation = {}
       production.each_with_index do |prod, prod_rowid|
-        next if prod_rowid == 0
-        @state.start[prod_rowid].each do |state_p|
-          state_q = state_p
-          (0 ... prod.rhs.size).each do |pos|
-            symbol_b = prod.rhs[pos]
-            if nonterminal.key?(symbol_b) 
-              if pos + 1 >= prod.rhs.size
-                includes_relation[[state_q, symbol_b]] << [state_p, prod.lhs]
-              elsif prod.rhs[pos + 1 .. -1].all? {|c| nullable.include?(c) }
-                includes_relation[[state_q, symbol_b]] << [state_p, prod.lhs]
+        if prod_rowid != 0
+          @state.start[prod_rowid].each do |state_p|
+            state_q = state_p
+            (0 ... prod.rhs.size).each do |pos|
+              symbol_b = prod.rhs[pos]
+              if nonterminal.key?(symbol_b) 
+                if pos + 1 >= prod.rhs.size
+                  includes_relation[[state_q, symbol_b]] << [state_p, prod.lhs]
+                elsif prod.rhs[pos + 1 .. -1].all? {|c| nullable.include?(c) }
+                  includes_relation[[state_q, symbol_b]] << [state_p, prod.lhs]
+                end
               end
+              state_q = @state.transition[state_q][symbol_b]
             end
-            state_q = @state.transition[state_q][symbol_b]
-          end
-          lookback_relation[[state_q, prod_rowid]] ||= Set.new
-          lookback_relation[[state_q, prod_rowid]] << [state_p, prod.lhs]
-        end
-      end
-      follow_set = union_relation(read_set, includes_relation)
-      la_set = {}
-      lookback_relation.each_pair do |x, rel|
-        la_set[x] = rel.inject(Set.new){|r, y| r.merge follow_set[y] }
-      end
-      la_set
-    end
-
-    def select_nullable(production)
-      nullable = Set.new
-      changed = true
-      while changed
-        changed = false
-        production.each do |e|
-          if e.rhs.size == 0 or e.rhs.all? {|a| nullable.include?(a) }
-            changed |= ! nullable.add?(e.lhs).nil?
+            lookback_relation[[state_q, prod_rowid]] ||= Set.new
+            lookback_relation[[state_q, prod_rowid]] << [state_p, prod.lhs]
           end
         end
       end
-      nullable
+      lookback_relation
     end
 
-    def union_relation(f, relation)
-      stack = []
-      mark= {}
-      f.each_key{|x| mark[x] = 0 }
-      f.each_key do |x|
-        next unless mark[x] == 0
-        union_relation_traverse(x, relation, f, stack, mark)
+    def union_find(disjointset, relation)
+      rank = []
+      mark = {}
+      disjointset.each_key {|x| mark[x] = 0 }
+      disjointset.each_key do |x|
+        mark[x] != 0 or union_find_loop(disjointset, relation, x, rank, mark)
       end
-      f
+      disjointset
     end
 
-    def union_relation_traverse(x, relation, f, stack, mark)
-      stack.push x
-      mark[x] = d = stack.size
+    def union_find_loop(disjointset, relation, x, rank, mark)
+      rank.push x
+      mark[x] = d = rank.size
       relation[x].each do |y|
-        if mark[y] == 0
-          union_relation_traverse(y, relation, f, stack, mark)
-        end
+        mark[y] != 0 or union_find_loop(disjointset, relation, y, rank, mark)
         mark[x] = mark[x] < mark[y] ? mark[x] : mark[y]
-        f[x].merge f[y]
+        disjointset[x].merge disjointset[y]
       end
       if mark[x] == d
-        while true
-          mark[stack.last] = relation.size + 2
-          f[stack.last] = f[x]
-          break if stack.pop == x
-        end
+        begin
+          mark[rank.last] = relation.size + 2
+          disjointset[rank.last] = disjointset[x]
+        end until rank.pop == x
       end
     end
   end

@@ -18,10 +18,9 @@ module Rzubr
     end
 
     def [](x)
-      raise "out of context: use Parser#[](x) only in semantic actions." if @semaction_argc.nil?
+      @semaction_argc or raise "out of context: use Parser#[](x) only in semantic actions."
       i = @datstack.size - @semaction_argc + x - 1
-      return nil if i < 0 || i >= @datstack.size
-      @datstack[i]
+      (0 <= i && i < @datstack.size) ? @datstack[i] : nil
     end
 
     def error_ok
