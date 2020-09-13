@@ -15,10 +15,10 @@ module Rzubr
 
     def rule(form, out = $stdout)
       @state.rule(form)
-      err = fill_table
-      err += check_table
+      err = fill_table(out)
+      err += check_table(out)
       if err > 0
-        out << list
+        list(out)
         raise "Grammar Critical Error"
       end
       self
@@ -29,7 +29,7 @@ module Rzubr
     def production() @state.grammar.production end
     def conflict_resolver() @state.grammar end
 
-    def fill_table
+    def fill_table(out = $stdout)
       @action.clear
       @goto.clear
       reduce = []
@@ -52,7 +52,7 @@ module Rzubr
       @action.each_index do |state_p|
         reduce[state_p].each_pair do |symbol_a, u|
           if u.size > 1
-            puts "state #{state_p} reduce/reduce conflict #{symbol_a.inspect}."
+            out << "state #{state_p} reduce/reduce conflict #{symbol_a.inspect}.\n"
             rr_conflict += 1
           end
           @action[state_p][symbol_a] = production[u.sort.first]
@@ -72,10 +72,10 @@ module Rzubr
               @action[state_p].delete symbol_a
             when :default
               @action[state_p][symbol_a] = state_r
-              puts "state #{state_p} shift/reduce conflict #{symbol_a.inspect}."
+              out << "state #{state_p} shift/reduce conflict #{symbol_a.inspect}.\n"
             when :error
               @action[state_p].delete symbol_a
-              puts "state #{state_p} shift/reduce conflict #{symbol_a.inspect}."
+              out << "state #{state_p} shift/reduce conflict #{symbol_a.inspect}.\n"
             end
           end
         end
@@ -83,7 +83,7 @@ module Rzubr
       rr_conflict
     end
 
-    def check_table
+    def check_table(out = $stdout)
       errs = 0
       nonterminal_shifts = Set.new
       nonterminal_reduces = Set.new
@@ -94,7 +94,7 @@ module Rzubr
           #  s  = r.name(:list) > r[:list1, "X"]
           #  s += r.name(:list1) > r[:list]
           errs += 1
-          puts "state #{state_p} empty actions table entry. infinite loop in grammar?"
+          out << "state #{state_p} empty actions table entry. infinite loop in grammar?\n"
         else
           @action[state_p].each_pair do |symbol_a, x|
             next if symbol_a == ENDMARK
@@ -125,44 +125,43 @@ module Rzubr
         errs += 1
         u = nonterminal_reduces - nonterminal_shifts
         u.each do |symbol_a|
-          puts "reduce by #{symbol_a.inspect} but never shift by it. infinite loop in grammar?"
+          out << "reduce by #{symbol_a.inspect} but never shift by it. infinite loop in grammar?\n"
         end
       end
       errs
     end
 
-    def list
-      t = ''
+    def list(out = '')
       @state.term.each_with_index do |s, state_p|
-        t << 'state %d' % [state_p] << "\n"
+        out << 'state %d' % [state_p] << "\n"
         s.each do |i, pos|
           prod = @state.grammar.production[i]
           r = prod.rhs.map {|x| x.inspect }
           a = r[0 ... pos]
           b = r[pos .. -1]
-          t << '      %s -> %s' % [prod.lhs.inspect, (a + ['_'] + b).join(' ')] << "\n"
+          out << '      %s -> %s' % [prod.lhs.inspect, (a + ['_'] + b).join(' ')] << "\n"
         end
-        t << "\n"
+        out << "\n"
         @action[state_p].each_pair do |s, x|
           case x
           when Integer
-            t << '  %-6s shift => state %d' % [s.inspect, x] << "\n"
+            out << '  %-6s shift => state %d' % [s.inspect, x] << "\n"
           end
         end
         @goto[state_p].each_pair do |s, x|
-          t << '  %-6s goto => state %d' % [s.inspect, x] << "\n"
+          out << '  %-6s goto => state %d' % [s.inspect, x] << "\n"
         end
         @action[state_p].each_pair do |s, x|
           case x
           when :accept
-            t << '  %-6s accept' % [s.inspect] << "\n"
+            out << '  %-6s accept' % [s.inspect] << "\n"
           when Production
-            t << '  %-6s reduce %s' % [s.inspect, x.inspect] << "\n"
+            out << '  %-6s reduce %s' % [s.inspect, x.inspect] << "\n"
           end
         end
-        t << "\n"
+        out << "\n"
       end
-      t
+      out
     end
 
   private
@@ -171,9 +170,9 @@ module Rzubr
     #   ACM Transactions on Programming Languages and Systems, Vol. 4, No. 4, 1982
     def compute_lookahead
       includes_relation = {}
-      nullable = select_nullable
       dr_set = {}
-      reads_relation = compute_reads_relation(includes_relation, nullable, dr_set)
+      nullable = select_nullable
+      reads_relation = compute_reads_relation(includes_relation, dr_set, nullable)
       lookback_relation = compute_lookback_relation(includes_relation, nullable)
       read_set = union_find(dr_set, reads_relation)
       follow_set = union_find(read_set, includes_relation)
@@ -198,7 +197,7 @@ module Rzubr
       nullable
     end
 
-    def compute_reads_relation(includes_relation, nullable, dr_set)
+    def compute_reads_relation(includes_relation, dr_set, nullable)
       reads_relation = {}
       @state.transition.each_index do |state_p|
         @state.transition[state_p].each_pair do |symbol_a, state_r|
